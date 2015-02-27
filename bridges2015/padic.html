@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  width: 600px;
+  height: 600px;
+  position: relative;
+}
+
+form {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+}
+
+path {
+  fill-rule: evenodd;
+  stroke: #333;
+  stroke-width: 2px;
+}
+
+.sector0 path {
+  fill: #FF0000;
+}
+
+.sector1 path {
+  fill: #FFFFFF;
+}
+
+.sector2 path {
+  fill: #0000FF;
+}
+
+</style>
+<form>
+</form>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+// Each circle in this animation will have an associated base-p number.  For the 2-adic case,
+// each circle will be assigned a binary number.  The number is the encoding of the location of the circle
+// in the hierarchy.  0 will mean "right side" and 1 will mean "left side"  E.g. the string "0" is the root 
+// circle and the string "110" is a 3rd-level circle to the left on both level 2 and 3.
+//
+// Javascript does not support binary, trinary, ... numeric literals.
+// http://stackoverflow.com/questions/2803145/is-there-0b-or-something-similar-to-represent-a-binary-number-in-javascript
+// So we are going to have to use the string form of these to track the data of our circles.
+// This is perhaps better anyway as we want to distinguish between "10" (the left circle at the second level) and "010"
+// (the right circle at the third level)
+
+var m_width = 600,
+    m_height = 600
+    m_radius = 500,
+	m_p = 2,	// p-adic
+	m_levels = 6,
+	m_angleParam = Math.PI/4;	// An angle parameter for the 2-adic case.
+
+var speed = 4,
+    start = Date.now();
+
+var svg = d3.select("body").append("svg")
+    .attr("width", m_width)
+    .attr("height", m_height)
+  .append("g")
+    .attr("transform", "translate(" + m_width / 2 + "," + m_height / 2 + ")scale(.55)")
+  .append("g");
+
+var frame = svg.append("g");
+
+// XXX - We should add our circles recursively,
+//		 which will more easily allow setting the p-adic encoding strings.
+// 		 Also, this will allow us to have the proper group hierarchy for nested rotations.
+for( level=0; level<m_levels; level++ )
+{
+	var group = frame.append("g"),
+		numCircles = Math.pow( m_p, level );
+
+	for( circle=0; circle<numCircles; circle++ )
+	for( sector=0; sector<m_p; sector++ )
+	{
+		// r and offset calc only works for 2-adic now.
+		var r = m_radius / numCircles,
+			offset = -(m_radius-r) + 2*r*circle,
+			className = "sector" + sector;
+			
+		group.append("g")
+			.attr("class", className)
+			.attr("transform", "rotate(" + (360/m_p)*sector + ") translate(" + offset + "," + 0 + ")")
+			.datum({radius: r})
+		  .append("path")
+			.attr("d", drawSector);
+	}
+}
+
+// Add the root circle, then recursively add all our other circles.
+
+function addCirclesRecursive( level, parentString )
+{
+
+	// Add a circle for each sector.
+	
+}
+
+function drawSector(d)
+{
+	var r = Math.abs(d.radius),
+		a = 2*Math.PI/m_p,
+		ex = r*Math.cos(a),
+		ey = r*Math.sin(a),
+		path = 
+		[
+			"M", r, ",", 0,
+			"L", 0, ",", 0,
+			"L", ex, ",", ey,
+			"A", r, ",", r, " 0 0,0 ", r, ",", 0,
+			"Z"
+		];
+	return path.join("");
+}
+
+d3.timer
+(
+	function() 
+	{
+	  var angle = (Date.now() - start) * speed / m_radius,
+		  transform = function(d) { return "rotate(" + -angle + ")"; };
+	  frame.selectAll("path").attr("transform", transform);
+	  //frame.selectAll("g").attr("transform", transform);
+	  //frame.attr("transform", transform); // frame of reference
+	}
+);
+
+</script>
