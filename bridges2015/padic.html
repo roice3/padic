@@ -54,7 +54,7 @@ var m_width = 600,
     m_height = 600
     m_radius = 500,
 	m_p = 2,	// p-adic
-	m_levels = 6,
+	m_levels = 5,
 	m_angleParam = Math.PI/4;	// An angle parameter for the 2-adic case.
 
 var speed = 4,
@@ -69,38 +69,48 @@ var svg = d3.select("body").append("svg")
 
 var frame = svg.append("g");
 
-// XXX - We should add our circles recursively,
-//		 which will more easily allow setting the p-adic encoding strings.
-// 		 Also, this will allow us to have the proper group hierarchy for nested rotations.
-for( level=0; level<m_levels; level++ )
-{
-	var group = frame.append("g"),
-		numCircles = Math.pow( m_p, level );
+// Add the root circle, then recursively add all our other circles.
+// Doing this recursively will more easily allow setting the p-adic encoding strings.
+// Also, it will allow us to have the proper group hierarchy for nested rotations.
+var rootGroup = frame.append("g");
+addCircle( 0, rootGroup, false );
+addCirclesRecursive( 0, rootGroup, "0" );
 
-	for( circle=0; circle<numCircles; circle++ )
-	for( sector=0; sector<m_p; sector++ )
+function addCirclesRecursive( level, parentGroup, parentCode )
+{
+	if( ++level > m_levels )
+		return;
+	
+	for( var i=0; i<m_p; i++ )
 	{
-		// r and offset calc only works for 2-adic now.
-		var r = m_radius / numCircles,
-			offset = -(m_radius-r) + 2*r*circle,
-			className = "sector" + sector;
-			
-		group.append("g")
-			.attr("class", className)
-			.attr("transform", "rotate(" + (360/m_p)*sector + ") translate(" + offset + "," + 0 + ")")
-			.datum({radius: r})
-		  .append("path")
-			.attr("d", drawSector);
+		left = i == 1;
+		code = "impl me";
+		var circleGroup = addCircle( level, parentGroup, left );
+		addCirclesRecursive( level, circleGroup, code );
 	}
 }
 
-// Add the root circle, then recursively add all our other circles.
-
-function addCirclesRecursive( level, parentString )
+function addCircle( level, group, left )
 {
+	// r and offset calc only works for 2-adic now.
+	var r = m_radius / Math.pow( m_p, level ),
+		offset = level == 0 ? 0 : left ? -r : r;
+	var circleGroup = group.append("g")
+		.attr("transform", "translate(" + offset + "," + 0 + ")")
 
-	// Add a circle for each sector.
+	// Add in all the sectors for this circle.
+	for( sector=0; sector<m_p; sector++ )
+	{
+		var className = "sector" + sector;
+		circleGroup.append("g")
+			.attr("class", className)
+			.attr("transform", "rotate(" + (360/m_p)*sector + ")")
+			.datum({radius: r})
+		.append("path")
+			.attr("d", drawSector);
+	}
 	
+	return circleGroup;
 }
 
 function drawSector(d)
