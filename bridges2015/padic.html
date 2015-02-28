@@ -41,8 +41,9 @@ path {
 
 // Each circle in this animation will have an associated base-p number.  For the 2-adic case,
 // each circle will be assigned a binary number.  The number is the encoding of the location of the circle
-// in the hierarchy.  0 will mean "right side" and 1 will mean "left side"  E.g. the string "0" is the root 
-// circle and the string "110" is a 3rd-level circle to the left on both level 2 and 3.
+// in the hierarchy.  0 will mean "left side" and 1 will mean "right side"  The root circle string will be "1",
+// and levels will be encoded right-to-left.
+// E.g.the  string "1101" is a 4th-level circle to the left on level 2 and to the right on levels 3 and 4.
 //
 // Javascript does not support binary, trinary, ... numeric literals.
 // http://stackoverflow.com/questions/2803145/is-there-0b-or-something-similar-to-represent-a-binary-number-in-javascript
@@ -73,8 +74,10 @@ var frame = svg.append("g");
 // Doing this recursively will more easily allow setting the p-adic encoding strings.
 // Also, it will allow us to have the proper group hierarchy for nested rotations.
 var rootGroup = frame.append("g");
-addCircle( 0, rootGroup, false );
-addCirclesRecursive( 0, rootGroup, "0" );
+var rootString = "1";
+var rootLovel = 0;
+var circleGroup = addCircle( rootString, rootLovel, rootGroup, false );
+addCirclesRecursive( rootLovel, circleGroup, rootString );
 
 function addCirclesRecursive( level, parentGroup, parentCode )
 {
@@ -83,26 +86,34 @@ function addCirclesRecursive( level, parentGroup, parentCode )
 	
 	for( var i=0; i<m_p; i++ )
 	{
-		left = i == 1;
-		code = "impl me";
-		var circleGroup = addCircle( level, parentGroup, left );
+		left = i == 0;
+		code = i.toString() + parentCode;
+		var circleGroup = addCircle( code, level, parentGroup, left );		
 		addCirclesRecursive( level, circleGroup, code );
 	}
 }
 
-function addCircle( level, group, left )
+function addCircle( code, level, group, left )
 {
 	// r and offset calc only works for 2-adic now.
 	var r = m_radius / Math.pow( m_p, level ),
 		offset = level == 0 ? 0 : left ? -r : r;
 	var circleGroup = group.append("g")
 		.attr("transform", "translate(" + offset + "," + 0 + ")")
+		.datum({});	// Not exactly sure why, but empty datum was needed here to make transforms work correctly.
+		
+	// Create a group to which we'll apply rotations, and assign
+	// it our code.  The circleGroup created above already
+	// has a transform set on it, which is the reason for the
+	// extra group here.
+	var circleGroupRotation = circleGroup.append("g")
+		.datum({id: code, level: level});	
 
 	// Add in all the sectors for this circle.
 	for( sector=0; sector<m_p; sector++ )
 	{
 		var className = "sector" + sector;
-		circleGroup.append("g")
+		circleGroupRotation.append("g")
 			.attr("class", className)
 			.attr("transform", "rotate(" + (360/m_p)*sector + ")")
 			.datum({radius: r})
@@ -110,7 +121,7 @@ function addCircle( level, group, left )
 			.attr("d", drawSector);
 	}
 	
-	return circleGroup;
+	return circleGroupRotation;
 }
 
 function drawSector(d)
@@ -130,15 +141,45 @@ function drawSector(d)
 	return path.join("");
 }
 
+function reverseString(s) 
+{
+  return s.split('').reverse().join('');
+}
+
 d3.timer
 (
 	function() 
 	{
 	  var angle = (Date.now() - start) * speed / m_radius,
 		  transform = function(d) { return "rotate(" + -angle + ")"; };
-	  frame.selectAll("path").attr("transform", transform);
-	  //frame.selectAll("g").attr("transform", transform);
-	  //frame.attr("transform", transform); // frame of reference
+		  
+	  //frame.selectAll("path").attr("transform", transform);
+	  frame.selectAll("g")
+		.filter( 
+			function(d, i) 
+			{ 
+				// Grab only those with valid IDs
+				var hasId = d != null && d.id != null && d.level != null;
+				if( !hasId )
+					return false;
+				
+				// Are we affected by the p-adic operation?
+				
+				// Convert to base-10 and perform the arithmetic 
+				// XXX - (support more operations here later).
+				var base10 = parseInt( d.id, m_p );
+				base10++;
+				
+				// Back to base-2, and reverse.
+				var basep = base10.toString( m_p )
+				basep = reverseString( basep );
+				
+				// We need to rotate if we rolled over our digit at the level we were at.
+				var passes = basep.charAt(d.level) == "0";
+				//var passes = d.id.length != basep.length;
+				return passes;
+			} )	
+		.attr("transform", transform);
 	}
 );
 
