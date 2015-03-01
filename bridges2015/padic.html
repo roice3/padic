@@ -36,14 +36,14 @@ path {
 </style>
 <form>
 </form>
-<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="d3.v3.min.js"></script>
 <script>
 
 // Each circle in this animation will have an associated base-p number.  For the 2-adic case,
 // each circle will be assigned a binary number.  The number is the encoding of the location of the circle
-// in the hierarchy.  0 will mean "left side" and 1 will mean "right side"  The root circle string will be "1",
-// and levels will be encoded right-to-left.
-// E.g.the  string "1101" is a 4th-level circle to the left on level 2 and to the right on levels 3 and 4.
+// in the hierarchy.  0 will mean "left side" and 1 will mean "right side"  The root level-0 circle string 
+// will be "", and levels will be encoded right-to-left.
+// E.g. the string "110" is a level-3 circle to the left on level 1 and to the right on levels 2 and 3.
 //
 // Javascript does not support binary, trinary, ... numeric literals.
 // http://stackoverflow.com/questions/2803145/is-there-0b-or-something-similar-to-represent-a-binary-number-in-javascript
@@ -74,7 +74,7 @@ var frame = svg.append("g");
 // Doing this recursively will more easily allow setting the p-adic encoding strings.
 // Also, it will allow us to have the proper group hierarchy for nested rotations.
 var rootGroup = frame.append("g");
-var rootString = "1";
+var rootString = "";
 var rootLovel = 0;
 var circleGroup = addCircle( rootString, rootLovel, rootGroup, false );
 addCirclesRecursive( rootLovel, circleGroup, rootString );
@@ -153,6 +153,9 @@ d3.timer
 	  var angle = (Date.now() - start) * speed / m_radius,
 		  transform = function(d) { return "rotate(" + -angle + ")"; };
 		  
+		if( angle > 180 )
+			angle = 180;
+		  
 	  //frame.selectAll("path").attr("transform", transform);
 	  frame.selectAll("g")
 		.filter( 
@@ -172,11 +175,15 @@ d3.timer
 				
 				// Back to base-2, and reverse.
 				var basep = base10.toString( m_p )
-				basep = reverseString( basep );
+				//basep = reverseString( basep );
 				
 				// We need to rotate if we rolled over our digit at the level we were at.
-				var passes = basep.charAt(d.level) == "0";
+				//var passes = basep.charAt(d.level) == "0";
 				//var passes = d.id.length != basep.length;
+				
+				var passes = 
+					d.id.length == "" ||
+					basep.length == d.id.length + 1;
 				return passes;
 			} )	
 		.attr("transform", transform);
