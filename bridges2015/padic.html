@@ -55,6 +55,9 @@ path {
 // * Save output as image:  http://d3export.housegordon.org/
 // * Make work for addition by larger numbers.
 // * Make work for 3-adic, etc.
+// * pause (configurable amount) after each action
+// * smooth start/stop
+// * click to stop
 //
 
 var m_width = 900,
@@ -62,7 +65,7 @@ var m_width = 900,
     m_radius = m_width * 0.9,
 	m_p = 2,	// p-adic
 	m_levels = 6,
-	m_angleParam = 20;	// An angle parameter for the 2-adic case.
+	m_angleParam = 0;	// An angle parameter for the 2-adic case.
 
 var m_speed = 8,
     m_start = Date.now();
