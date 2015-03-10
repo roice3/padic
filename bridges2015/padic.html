@@ -4,8 +4,8 @@
 
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  width: 900px;
-  height: 900px;
+  width: 700px;
+  height: 700px;
   position: relative;
 }
 
@@ -33,6 +33,22 @@ path {
   fill: #0000FF;
 }
 
+.sector3 path {
+  fill: #00FF00;
+}
+
+.sector4 path {
+  fill: #FFFF00;
+}
+
+.sector5 path {
+  fill: #00FFFF;
+}
+
+.sector6 path {
+  fill: #000000;
+}
+
 </style>
 <form>
 </form>
@@ -54,22 +70,26 @@ path {
 // TODO:
 // * Save output as image:  http://d3export.housegordon.org/
 // * Make work for addition by larger numbers.
-// * Make work for 3-adic, etc.
 // * pause (configurable amount) after each action
 // * smooth start/stop
-// * click to stop
+// * better colors
 //
 
-var m_width = 900,
-    m_height = 900
+var m_width = 700,
+    m_height = 700
     m_radius = m_width * 0.9,
-	m_p = 2,	// p-adic
-	m_levels = 6,
+	m_p = 3,			// p-adic
 	m_angleParam = 0;	// An angle parameter for the 2-adic case.
 
-var m_speed = 8,
-    m_start = Date.now();
-
+var levels = 3;
+switch( m_p )
+{
+	case 2: m_levels = 6; break;
+	case 3: m_levels = 4; break;
+	case 5: m_levels = 3; break;
+	case 7:	m_levels = 2; break;
+}
+	
 var svg = d3.select("body").append("svg")
     .attr("width", m_width)
     .attr("height", m_height)
@@ -80,12 +100,12 @@ var svg = d3.select("body").append("svg")
 var frame = svg.append("g");
 
 // Add the root circle, then recursively add all our other circles.
-// Doing this recursively will more easily allow setting the p-adic encoding strings.
-// Also, it will allow us to have the proper group hierarchy for nested rotations.
+// Doing this recursively more easily allows setting the p-adic encoding strings,
+// and gives us the proper group hierarchy for nested rotations.
 var rootGroup = frame.append("g");
 var rootString = "";
 var rootLovel = 0;
-var circleGroup = addCircle( rootString, rootLovel, rootGroup, false );
+var circleGroup = addCircle( rootString, rootLovel, rootGroup, 0 );
 addCirclesRecursive( rootLovel, circleGroup, rootString );
 
 function addCirclesRecursive( level, parentGroup, parentCode )
@@ -95,16 +115,15 @@ function addCirclesRecursive( level, parentGroup, parentCode )
 	
 	for( var i=0; i<m_p; i++ )
 	{
-		left = i == 0;
 		code = i.toString() + parentCode;
-		var circleGroup = addCircle( code, level, parentGroup, left );		
+		var circleGroup = addCircle( code, level, parentGroup, i );		
 		addCirclesRecursive( level, circleGroup, code );
 	}
 }
 
-function addCircle( code, level, group, left )
+function addCircle( code, level, group, circleNum )
 {
-	// We want to apply the angle param to any circle on the right.
+	// This angle offset helps to clarify limit points in the 2-adic case.
 	var angleOffset = 0;
 	if( m_p == 2 && level > 0 )
 	{
@@ -114,23 +133,34 @@ function addCircle( code, level, group, left )
 		angleOffset = level % 2 == 1 ? -m_angleParam : m_angleParam;
 	}
 	
-	// r and offset calc only works for 2-adic now.
-	var r = m_radius / Math.pow( m_p, level ),
-		offset = level == 0 ? 0 : left ? -r : r;
+	// Calculate r and offset for a standard circle.
+	// The offset should be so that the largest circleNum is directly to the right.
+	var pi_p = Math.PI / m_p,
+		r = Math.sin( pi_p ) / ( Math.sin( pi_p ) + 1 ),
+		offsetX = Math.cos( (m_p-circleNum-1)*2*pi_p ) * ( 1 - r ),
+		offsetY = Math.sin( (m_p-circleNum-1)*2*pi_p ) * ( 1 - r );
+	if( level == 0 )
+		offsetX = offsetY = 0;
+	
+	var scale = m_radius * Math.pow( r, level ) / r;
+	r *= scale;
+	offsetX *= scale;
+	offsetY *= scale;
+	
 	var circleGroup = group.append("g")
-		.attr("transform", "translate(" + offset + "," + 0 + ") rotate(" + angleOffset + ") ")
+		.attr("transform", "translate(" + offsetX + "," + offsetY + ") rotate(" + angleOffset + ") ")
 		.datum({});	// Not exactly sure why, but empty datum was needed here to make transforms work correctly.
 		
 	// Create a group to which we'll apply rotations, and assign
 	// it our code.  The circleGroup created above already
 	// has a transform set on it, which is the reason for the
 	// extra group here.
-	var circleGroupRotation = circleGroup.append("g")
+	var rotationGroup = circleGroup.append("g")
 		.datum({id: code});	
 		
 	// A group to track the state of things.	
 	var state = 0;
-	var stateGroup = circleGroupRotation.append("g")
+	var stateGroup = rotationGroup.append("g")
 		.datum({id: code, state: state});
 		
 	// Add in all the sectors for this circle.
@@ -147,7 +177,7 @@ function addCircle( code, level, group, left )
 	
 	// Note: It is important to return this group and not stateGroup so that
 	//		 our state transformations do not affect all the circles below.
-	return circleGroupRotation;
+	return rotationGroup;
 }
 
 function drawSector(d)
@@ -167,11 +197,6 @@ function drawSector(d)
 	return path.join("");
 }
 
-function reverseString(s) 
-{
-  return s.split('').reverse().join('');
-}
-
 // Are we affected by the p-adic operation?
 // XXX - (support more operations here later).
 // XXX - This doesn't pad or trim the resulting string.
@@ -188,7 +213,7 @@ function performAdd( code, num )
 		base10 += numCodes;
 	base10 %= numCodes;	// We need to mod it out.
 	
-	// Back to base-2.
+	// Back to base-p.
 	var basep = base10.toString( m_p );
 	return basep;
 }
@@ -205,6 +230,7 @@ function performAddPad( code, num )
 	return result;
 }
 
+// XXX - Potential optimization: calculate this for all codes once and cache
 function rolledOver( code )
 {
 	if( code == NoParent )
@@ -219,7 +245,7 @@ function rolledOver( code )
 	
 	// We need to rotate if we rolled over.
 	var rolledOver = 
-		code.length == "" || -1 == after.search( "1" );	// XXX - won't work with addition by 2.
+		code.length == "" || after == "0";	// XXX - won't work with addition by 2.
 	return rolledOver;
 }
 
@@ -236,7 +262,6 @@ function spinCount( code )
 }
 
 var NoParent = "NONE";
-
 function parentCode( code )
 {
 	if( code.length == 0 )
@@ -245,6 +270,24 @@ function parentCode( code )
 	return code.substring( 1, code.length );
 }
 
+var m_stateGroups = frame.selectAll("g")
+	.filter( 
+		function(d, i) 
+		{ 
+			// Grab the state groups.
+			var hasId = d != null && d.id != null && d.state != null;
+			return hasId;
+		} );
+
+var m_rotationGroups = frame.selectAll("g")
+	.filter( 
+		function(d, i) 
+		{ 
+			// Grab those with valid IDs which are not a stateGroup.
+			var hasId = d != null && d.id != null && d.state == null;
+			return hasId;
+		} );
+		
 function updateState()
 {
 	var calcNewState = function(d) 
@@ -256,54 +299,71 @@ function updateState()
 		// Did our previous location spin?
 		var rolled = rolledOver( d.id );
 		if( rolled )
-			d.state = d.state == 0 ? 1 : 0;
+		{
+			d.state++;
+			d.state %= m_p;
+		}
 		
 		return d;
 	};
 
 	var transform = function(d) 
 	{ 
-		return "rotate(" + 180*d.state + ")"; 
+		return "rotate(" + -360*d.state/m_p + ")"; 
 	};
 	
-	frame.selectAll("g")
-		.filter( 
-			function(d, i) 
-			{ 
-				// Grab the state groups.
-				var hasId = d != null && d.id != null && d.state != null;
-				return hasId;
-			} )
+	m_stateGroups
 		.datum(calcNewState)
 		.attr("transform", transform);
 }
 
+// Variables related to spinning.
+var m_speed = 8,
+	m_pause = false,
+    m_last = Date.now(),
+	m_elapsed = 0;
+d3.select("body")
+	.on("click", function() { m_pause = !m_pause; });
+
+function smoothedRotation( input )
+{
+	var max = 360/m_p;
+	var result = ( max / 2.0 ) * ( -Math.cos( Math.PI *  input  / max ) + 1 );
+	
+	// Pause on the sides of this.
+	return result;
+}
+	
 d3.timer
 (
 	function() 
 	{
-		var angle = (Date.now() - m_start) * m_speed / m_radius;
-		if( angle > 180 )
+		if( m_pause )
+		{
+			m_last = Date.now();
+			return;
+		}
+	
+		var now = Date.now();
+		m_elapsed += now - m_last;
+		m_last = now;
+	
+		var angle = m_elapsed * m_speed / m_radius;
+		if( angle > 360/m_p )
 		{
 			updateState();
 			angle = 0;
-			m_start = Date.now();
-		}			
+			m_elapsed = 0;
+		}
+		angle = smoothedRotation( angle );
 
 		var transform = function(d) 
 		{ 
 			var count = spinCount( d.id )
 			return "rotate(" + -angle*count + ")"; 
 		};
-		  
-		frame.selectAll("g")
-			.filter( 
-				function(d, i) 
-				{ 
-					// Grab those with valid IDs which are not a stateGroup.
-					var hasId = d != null && d.id != null && d.state == null;
-					return hasId;
-				} )	
+
+		m_rotationGroups
 			.attr("transform", transform);
 	}
 );
