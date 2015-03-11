@@ -78,7 +78,7 @@ path {
 var m_width = 700,
     m_height = 700
     m_radius = m_width * 0.9,
-	m_p = 3,			// p-adic
+	m_p = 5,			// p-adic
 	m_angleParam = 0;	// An angle parameter for the 2-adic case.
 
 var m_levels = 3;
@@ -89,6 +89,10 @@ switch( m_p )
 	case 5: m_levels = 3; break;
 	case 7:	m_levels = 2; break;
 }
+
+// Cache of IDs to spin counts,
+// so we don't have to calc this at every render step.
+var m_spinCountCache = {};
 	
 var svg = d3.select("body").append("svg")
     .attr("width", m_width)
@@ -168,7 +172,10 @@ function addCircle( code, level, group, circleNum )
 	// has a transform set on it, which is the reason for the
 	// extra group here.
 	var rotationGroup = circleGroup.append("g")
-		.datum({id: code});	
+		.datum({id: code});
+		
+	// Cache the spin count for this code.
+	m_spinCountCache[code] = spinCount( code );
 		
 	// A group to track the state of things.	
 	var state = 0;
@@ -176,7 +183,7 @@ function addCircle( code, level, group, circleNum )
 		.datum({id: code, state: state});
 		
 	// Add in all the sectors for this circle.
-	for( sector=0; sector<m_p; sector++ )
+	for( var sector=0; sector<m_p; sector++ )
 	{
 		var className = "sector" + sector;
 		stateGroup.append("g")
@@ -382,7 +389,7 @@ d3.timer
 
 		var transform = function(d) 
 		{ 
-			var count = spinCount( d.id )
+			var count = m_spinCountCache[d.id];
 			return "rotate(" + -angle*count + ")"; 
 		};
 
