@@ -46,7 +46,7 @@ path {
 }
 
 .sector6 path {
-  fill: #000000;
+  fill: #888888;
 }
 
 </style>
@@ -81,7 +81,7 @@ var m_width = 700,
 	m_p = 3,			// p-adic
 	m_angleParam = 0;	// An angle parameter for the 2-adic case.
 
-var levels = 3;
+var m_levels = 3;
 switch( m_p )
 {
 	case 2: m_levels = 6; break;
@@ -121,6 +121,18 @@ function addCirclesRecursive( level, parentGroup, parentCode )
 	}
 }
 
+function standardR()
+{
+	var pi_p = Math.PI / m_p;
+	return Math.sin( pi_p ) / ( Math.sin( pi_p ) + 1 );
+}
+
+function scaleAtLevel( level )
+{
+	var r = standardR();
+	return m_radius * Math.pow( r, level-1 );
+}
+
 function addCircle( code, level, group, circleNum )
 {
 	// This angle offset helps to clarify limit points in the 2-adic case.
@@ -136,13 +148,13 @@ function addCircle( code, level, group, circleNum )
 	// Calculate r and offset for a standard circle.
 	// The offset should be so that the largest circleNum is directly to the right.
 	var pi_p = Math.PI / m_p,
-		r = Math.sin( pi_p ) / ( Math.sin( pi_p ) + 1 ),
+		r = standardR(),
 		offsetX = Math.cos( (m_p-circleNum-1)*2*pi_p ) * ( 1 - r ),
 		offsetY = Math.sin( (m_p-circleNum-1)*2*pi_p ) * ( 1 - r );
 	if( level == 0 )
 		offsetX = offsetY = 0;
 	
-	var scale = m_radius * Math.pow( r, level ) / r;
+	var scale = scaleAtLevel( level );
 	r *= scale;
 	offsetX *= scale;
 	offsetY *= scale;
@@ -173,6 +185,17 @@ function addCircle( code, level, group, circleNum )
 			.datum({radius: r})
 		.append("path")
 			.attr("d", drawSector);
+	}
+	
+	// Cover the origin near where the sectors meet.
+	if( m_p > 2 )
+	{
+		r = standardR();
+		r *= scaleAtLevel( level+1 );
+		var rad = r/Math.tan(pi_p);
+		stateGroup.append("circle")
+			.attr("r", rad )
+			.attr("fill", 0x000000);
 	}
 	
 	// Note: It is important to return this group and not stateGroup so that
