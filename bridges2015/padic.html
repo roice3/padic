@@ -79,7 +79,7 @@ var m_width = 700,
     m_height = 700
     m_radius = m_width * 0.9,
 	m_p = 3,			// p-adic
-	m_add = 7,			// Amount to add at each step
+	m_add = 1,			// Amount to add at each step
 	m_angleParam = 0;	// An angle parameter for the 2-adic case
 
 var m_levels = 3;
@@ -99,15 +99,16 @@ var svg = d3.select("body").append("svg")
     .attr("width", m_width)
     .attr("height", m_height)
   .append("g")
-    .attr("transform", "translate(" + m_width / 2 + "," + m_height / 2 + ")scale(.5)")
-  .append("g");
+    .attr("transform", "translate(" + m_width / 2 + "," + m_height / 2 + ") scale(.5)");
 
 var frame = svg.append("g");
 
 // Add the root circle, then recursively add all our other circles.
 // Doing this recursively more easily allows setting the p-adic encoding strings,
 // and gives us the proper group hierarchy for nested rotations.
-var rootGroup = frame.append("g");
+var rootRotation = m_p%2 == 1 ? -90 : 0,	// To give odd m_p vertical bi-lateral symmetry
+	rootGroup = frame.append("g")
+		.attr("transform", "rotate(" + rootRotation + ")");
 var rootString = "";
 var rootLovel = 0;
 var circleGroup = addCircle( rootString, rootLovel, rootGroup, 0 );
