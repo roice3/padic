@@ -78,8 +78,9 @@ path {
 var m_width = 700,
     m_height = 700
     m_radius = m_width * 0.9,
-	m_p = 5,			// p-adic
-	m_angleParam = 0;	// An angle parameter for the 2-adic case.
+	m_p = 3,			// p-adic
+	m_add = 7,			// Amount to add at each step
+	m_angleParam = 0;	// An angle parameter for the 2-adic case
 
 var m_levels = 3;
 switch( m_p )
@@ -195,7 +196,9 @@ function addCircle( code, level, group, circleNum )
 	}
 	
 	// Cover the origin near where the sectors meet.
-	if( m_p > 2 )
+	// The second part controls whether black is shown on the smallest circles or not.
+	// I think I like it better with, so I left it commented out.
+	if( m_p > 2 ) // && level != m_levels )
 	{
 		r = standardR();
 		r *= scaleAtLevel( level+1 );
@@ -239,7 +242,7 @@ function performAdd( code, num )
 	
 	// Perform the arithmetic
 	base10 += num;
-	if( base10 < 0 )
+	while( base10 < 0 )
 		base10 += numCodes;
 	base10 %= numCodes;	// We need to mod it out.
 	
@@ -260,33 +263,42 @@ function performAddPad( code, num )
 	return result;
 }
 
-// XXX - Potential optimization: calculate this for all codes once and cache
+// This will return the number of times we rolled over from
+// the addition operation.
 function rolledOver( code )
 {
 	if( code == NoParent )
-		return false;
+		return 0;
 
-	var after = performAdd( code, 1 );
+	var rolledCount = 0;
+	var runningCode = code;
+	for( var i=1; i<=m_add; i++ )
+	{
+		var after = performAddPad( runningCode, 1 );
+		
+		// Some other interesting choices for when to rotate.
+		//var spin = after.charAt(d.level) == "0";
+		//var spin = d.id.length != after.length;
+		// after.length == code.length + 1
+		
+		// We need to rotate if we rolled over.
+		var rolled = 
+			code.length == "" || parseInt( after, m_p ) == 0;	// NOTE: won't work with addition by 2.
+		if( rolled )
+			rolledCount++;
+		runningCode = after;
+	}
 	
-	// Some other interesting choices for when to rotate.
-	//var spin = after.charAt(d.level) == "0";
-	//var spin = d.id.length != after.length;
-	// after.length == code.length + 1
-	
-	// We need to rotate if we rolled over.
-	var rolledOver = 
-		code.length == "" || after == "0";	// XXX - won't work with addition by 2.
-	return rolledOver;
+	return rolledCount % m_p;
 }
 
 // Returns -1, 0, or 1
 function spinCount( code )
 {
-	var count = rolledOver( code ) ? 1 : 0;
+	var count = rolledOver( code );
 
 	// If the parent is spinning, we need to counteract that.
-	if( rolledOver( parentCode( code ) ) )
-		count -= 1;
+	count -= rolledOver( parentCode( code ) );
 		
 	return count;
 }
@@ -324,15 +336,12 @@ function updateState()
 	{
 		// We need to update the ID of the group.
 		// Where were we before?
-		d.id = performAddPad( d.id, -1 );
+		d.id = performAddPad( d.id, -m_add );
 	
 		// Did our previous location spin?
 		var rolled = rolledOver( d.id );
-		if( rolled )
-		{
-			d.state++;
-			d.state %= m_p;
-		}
+		d.state += rolled;
+		d.state %= m_p;
 		
 		return d;
 	};
