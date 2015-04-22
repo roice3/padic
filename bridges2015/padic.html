@@ -69,32 +69,41 @@ path {
 //
 // TODO:
 // * Save output as image:  http://d3export.housegordon.org/
-// * Make work for addition by larger numbers.
 // * pause (configurable amount) after each action
-// * smooth start/stop
-// * better colors
-//
+// * better colors (spectrum the same for each p-adic.  so 3-adic 3 colors would be sector 0, 3, 6 for sector7)
+// * puzzle version and controllable one (link at latter to go to puzzle first)  Latter explicitly allows setting p and add amount.
+// * make it work offline
+// 
 
 var m_width = 700,
     m_height = 700
-    m_radius = m_width * 0.9,
+    m_radius = m_width * 0.9,	// Ugh, diameter?
 	m_p = 3,			// p-adic
 	m_add = 1,			// Amount to add at each step
+	m_increment = 0,	// An amount to increment the add (from tapping or clicking)
 	m_angleParam = 0;	// An angle parameter for the 2-adic case
 
 var m_levels = 3;
-switch( m_p )
+
+function setLevels()
 {
-	case 2: m_levels = 6; break;
-	case 3: m_levels = 4; break;
-	case 5: m_levels = 3; break;
-	case 7:	m_levels = 2; break;
+	switch( m_p )
+	{
+		case 2: m_levels = 6; break;
+		case 3: m_levels = 4; break;
+		case 5: m_levels = 3; break;
+		case 7:	m_levels = 2; break;
+	}
 }
 
 // Cache of IDs to spin counts,
 // so we don't have to calc this at every render step.
 var m_spinCountCache = {};
-	
+var m_regenCache = true;
+
+var m_rotationGroups = {};
+var m_stateGroups = {};
+
 var svg = d3.select("body").append("svg")
     .attr("width", m_width)
     .attr("height", m_height)
@@ -102,17 +111,37 @@ var svg = d3.select("body").append("svg")
     .attr("transform", "translate(" + m_width / 2 + "," + m_height / 2 + ") scale(.5)");
 
 var frame = svg.append("g");
+build();
 
-// Add the root circle, then recursively add all our other circles.
-// Doing this recursively more easily allows setting the p-adic encoding strings,
-// and gives us the proper group hierarchy for nested rotations.
-var rootRotation = m_p%2 == 1 ? -90 : 0,	// To give odd m_p vertical bi-lateral symmetry
-	rootGroup = frame.append("g")
-		.attr("transform", "rotate(" + rootRotation + ")");
-var rootString = "";
-var rootLovel = 0;
-var circleGroup = addCircle( rootString, rootLovel, rootGroup, 0 );
-addCirclesRecursive( rootLovel, circleGroup, rootString );
+function clearCaches()
+{
+	m_spinCountCache = {};
+	m_regenCache = true;
+	m_rotationGroups = {};
+	m_stateGroups = {};
+}
+
+function build()
+{
+	frame.selectAll("g").remove();
+	
+	clearCaches();
+	setLevels();
+	m_add = 1;
+	
+	// Add the root circle, then recursively add all our other circles.
+	// Doing this recursively more easily allows setting the p-adic encoding strings,
+	// and gives us the proper group hierarchy for nested rotations.
+	var rootRotation = m_p%2 == 1 ? -90 : 0,	// To give odd m_p vertical bi-lateral symmetry
+		rootGroup = frame.append("g")
+			.attr("transform", "rotate(" + rootRotation + ")");
+	var rootString = "";
+	var rootLevel = 0;
+	var circleGroup = addCircle( rootString, rootLevel, rootGroup, 0 );
+	addCirclesRecursive( rootLevel, circleGroup, rootString );
+	cacheGroups();
+	updateCacheIfNeeded();
+}
 
 function addCirclesRecursive( level, parentGroup, parentCode )
 {
@@ -137,6 +166,16 @@ function scaleAtLevel( level )
 {
 	var r = standardR();
 	return m_radius * Math.pow( r, level-1 );
+}
+
+function circleClicked( level )
+{
+	// Clicking a circle will also result in a click of all the parent circles too,
+	// but we don't want those to increment our adding. Luckily, it looks to go in
+	// child first order, so we can just handle the first one.
+	if( !m_regenCache )
+		m_increment = Math.pow( m_p, level );
+	m_regenCache = true;	// We'll need to regen the cache.
 }
 
 function addCircle( code, level, group, circleNum )
@@ -167,7 +206,9 @@ function addCircle( code, level, group, circleNum )
 	
 	var circleGroup = group.append("g")
 		.attr("transform", "translate(" + offsetX + "," + offsetY + ") rotate(" + angleOffset + ") ")
-		.datum({});	// Not exactly sure why, but empty datum was needed here to make transforms work correctly.
+		.datum({})	// Not exactly sure why, but empty datum was needed here to make transforms work correctly.
+		.on("click", function() { circleClicked( level ); } )
+		.on("touchstart", function() { circleClicked( level ); } );
 		
 	// Create a group to which we'll apply rotations, and assign
 	// it our code.  The circleGroup created above already
@@ -175,9 +216,6 @@ function addCircle( code, level, group, circleNum )
 	// extra group here.
 	var rotationGroup = circleGroup.append("g")
 		.datum({id: code});
-		
-	// Cache the spin count for this code.
-	m_spinCountCache[code] = spinCount( code );
 		
 	// A group to track the state of things.	
 	var state = 0;
@@ -313,23 +351,48 @@ function parentCode( code )
 	return code.substring( 1, code.length );
 }
 
-var m_stateGroups = frame.selectAll("g")
-	.filter( 
-		function(d, i) 
-		{ 
-			// Grab the state groups.
-			var hasId = d != null && d.id != null && d.state != null;
-			return hasId;
-		} );
+function cacheGroups()
+{
+	m_stateGroups = frame.selectAll("g")
+		.filter( 
+			function(d, i) 
+			{ 
+				// Grab the state groups.
+				var hasId = d != null && d.id != null && d.state != null;
+				return hasId;
+			} );
 
-var m_rotationGroups = frame.selectAll("g")
-	.filter( 
-		function(d, i) 
-		{ 
-			// Grab those with valid IDs which are not a stateGroup.
-			var hasId = d != null && d.id != null && d.state == null;
-			return hasId;
+	m_rotationGroups = frame.selectAll("g")
+		.filter( 
+			function(d, i) 
+			{ 
+				// Grab those with valid IDs which are not a stateGroup.
+				var hasId = d != null && d.id != null && d.state == null;
+				return hasId;
+			} );
+}
+		
+function updateCacheIfNeeded()
+{
+	// If the cache has items, we have already filled it.
+	if( !m_regenCache )
+		return;
+
+	m_add += m_increment;
+	m_add %= Math.pow( m_p, m_levels + 1 );	// Keep us at smallish values.
+	m_increment = 0;	// Could overload this and remove m_regenCache, but feels clearer as is.
+	m_regenCache = false;	
+		
+	// Just using a filter here to cycle through all the groups.
+	m_rotationGroups.filter(
+		function(d, i)
+		{
+			// Cache the spin count for this code.
+			var code = d.id;
+			m_spinCountCache[code] = spinCount( code );
+			return true;
 		} );
+}
 		
 function updateState()
 {
@@ -362,8 +425,33 @@ var m_speed = 8,
 	m_pause = false,
     m_last = Date.now(),
 	m_elapsed = 0;
-d3.select("body")
-	.on("click", function() { m_pause = !m_pause; });
+//d3.select("body")
+//	.on("click", function() { m_pause = !m_pause; });
+
+function cyclePuzzle()
+{
+	// See if we clicked outside the circle.
+	// Mouse coords centered on corner.
+	var coords = d3.mouse(this);
+	var xOff = Math.abs( m_width/2 - coords[0] );
+	var yOff = Math.abs( m_height/2 - coords[1] );
+	if( Math.sqrt( xOff*xOff + yOff*yOff ) < m_radius/2 )
+		return;
+
+	// Cycle the p-adic and rebuild.
+	switch( m_p )
+	{
+		case 2: m_p = 3; break;
+		case 3: m_p = 5; break;
+		case 5: m_p = 7; break;
+		case 7:	m_p = 2; break;
+	}
+	build(); 
+}
+
+d3.select("svg")
+	.on("click", cyclePuzzle )
+	.on("touchstart", cyclePuzzle );
 
 function smoothedRotation( input )
 {
@@ -383,17 +471,20 @@ d3.timer
 			m_last = Date.now();
 			return;
 		}
-	
+		
 		var now = Date.now();
 		m_elapsed += now - m_last;
 		m_last = now;
 	
-		var angle = m_elapsed * m_speed / m_radius;
+		var angle = m_elapsed * m_speed / m_radius;	// Shouldn't depend on radius.
 		if( angle > 360/m_p )
 		{
 			updateState();
 			angle = 0;
 			m_elapsed = 0;
+			
+			// We may have been clicked during our last rotation.
+			updateCacheIfNeeded();
 		}
 		angle = smoothedRotation( angle );
 
