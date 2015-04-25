@@ -207,8 +207,8 @@ function addCircle( code, level, group, circleNum )
 	var circleGroup = group.append("g")
 		.attr("transform", "translate(" + offsetX + "," + offsetY + ") rotate(" + angleOffset + ") ")
 		.datum({})	// Not exactly sure why, but empty datum was needed here to make transforms work correctly.
-		.on("click", function() { circleClicked( level ); } )
-		.on("touchstart", function() { circleClicked( level ); } );
+		.on("click", function() { circleClicked( level ); } );
+		//.on("touchstart", function() { circleClicked( level ); } );
 		
 	// Create a group to which we'll apply rotations, and assign
 	// it our code.  The circleGroup created above already
@@ -450,8 +450,8 @@ function cyclePuzzle()
 }
 
 d3.select("svg")
-	.on("click", cyclePuzzle )
-	.on("touchstart", cyclePuzzle );
+	.on("click", cyclePuzzle );
+	//.on("touchstart", cyclePuzzle );
 
 function smoothedRotation( input )
 {
