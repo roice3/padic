@@ -7,6 +7,7 @@ body {
   width: 1024px;
   height: 768px;
   position: relative;
+  stroke-width: 4px;
 }
 
 form {
@@ -18,7 +19,6 @@ form {
 path {
   fill-rule: evenodd;
   stroke: #333;
-  stroke-width: 4px;
 }
 
 .sector0 path {
@@ -50,8 +50,11 @@ path {
 }
 
 .highlight {
-  fill: #888888;
   stroke-width: 15px;
+}
+
+.nohighlight {
+  stroke-width: 4px;
 }
 
 </style>
@@ -105,6 +108,7 @@ function setLevels()
 // so we don't have to calc this at every render step.
 var m_spinCountCache = {};
 var m_regenCache = true;
+var m_highlightedCircle = null;
 
 var m_rotationGroups = {};
 var m_stateGroups = {};
@@ -227,6 +231,7 @@ function addCircle( code, level, group, circleNum )
 		.on("click", function() 
 		{ 
 			stateGroup.attr( "class", "highlight" );
+			m_highlightedCircle = stateGroup;
 			circleClicked( level ); 
 		} );
 		
@@ -492,6 +497,9 @@ d3.timer
 			
 			// We may have been clicked during our last rotation.
 			updateCacheIfNeeded();
+			
+			// Stop highlighting.
+			m_highlightedCircle.attr( "class", "nohighlight" );
 		}
 		angle = smoothedRotation( angle );
 
