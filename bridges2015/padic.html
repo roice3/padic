@@ -499,7 +499,8 @@ d3.timer
 			updateCacheIfNeeded();
 			
 			// Stop highlighting.
-			m_highlightedCircle.attr( "class", "nohighlight" );
+			if( m_highlightedCircle != null )
+				m_highlightedCircle.attr( "class", "nohighlight" );
 		}
 		angle = smoothedRotation( angle );
 
