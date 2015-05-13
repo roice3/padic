@@ -4,8 +4,8 @@
 
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  width: 700px;
-  height: 700px;
+  width: 1024px;
+  height: 768px;
   position: relative;
 }
 
@@ -49,6 +49,11 @@ path {
   fill: #888888;
 }
 
+.highlight {
+  fill: #888888;
+  stroke-width: 15px;
+}
+
 </style>
 <form>
 </form>
@@ -75,9 +80,9 @@ path {
 // * make it work offline
 // 
 
-var m_width = 700,
-    m_height = 700
-    m_radius = m_width * 0.9,	// Ugh, diameter?
+var m_width = 1024,
+    m_height = 768,
+    m_radius = m_height * 0.9,	// Ugh, diameter?
 	m_p = 3,			// p-adic
 	m_add = 1,			// Amount to add at each step
 	m_increment = 0,	// An amount to increment the add (from tapping or clicking)
@@ -206,9 +211,7 @@ function addCircle( code, level, group, circleNum )
 	
 	var circleGroup = group.append("g")
 		.attr("transform", "translate(" + offsetX + "," + offsetY + ") rotate(" + angleOffset + ") ")
-		.datum({})	// Not exactly sure why, but empty datum was needed here to make transforms work correctly.
-		.on("click", function() { circleClicked( level ); } );
-		//.on("touchstart", function() { circleClicked( level ); } );
+		.datum({});	// Not exactly sure why, but empty datum was needed here to make transforms work correctly.
 		
 	// Create a group to which we'll apply rotations, and assign
 	// it our code.  The circleGroup created above already
@@ -220,7 +223,12 @@ function addCircle( code, level, group, circleNum )
 	// A group to track the state of things.	
 	var state = 0;
 	var stateGroup = rotationGroup.append("g")
-		.datum({id: code, state: state});
+		.datum({id: code, state: state})
+		.on("click", function() 
+		{ 
+			stateGroup.attr( "class", "highlight" );
+			circleClicked( level ); 
+		} );
 		
 	// Add in all the sectors for this circle.
 	for( var sector=0; sector<m_p; sector++ )
@@ -421,7 +429,7 @@ function updateState()
 }
 
 // Variables related to spinning.
-var m_speed = 8,
+var m_speed = 15,
 	m_pause = false,
     m_last = Date.now(),
 	m_elapsed = 0;
@@ -443,8 +451,7 @@ function cyclePuzzle()
 	{
 		case 2: m_p = 3; break;
 		case 3: m_p = 5; break;
-		case 5: m_p = 7; break;
-		case 7:	m_p = 2; break;
+		case 5: m_p = 2; break;
 	}
 	build(); 
 }
