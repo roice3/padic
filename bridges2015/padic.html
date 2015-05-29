@@ -6,7 +6,7 @@
 // http://stackoverflow.com/questions/3516173/ipad-safari-how-to-disable-the-quick-blinking-effect-when-a-link-has-been-hit
 // http://stackoverflow.com/questions/9157080/wrong-webkit-tap-highlight-color-behavior-when-page-as-web-standalone-app
 html {
-    -webkit-tap-highlight-color: transparent; 
+	-webkit-tap-highlight-color: rgba(0,0,0,0);
     -webkit-user-select: none;
 } 
 
@@ -16,6 +16,8 @@ body {
   height: 768px;
   position: relative;
   stroke-width: 4px;
+  -webkit-tap-highlight-color: rgba(0,0,0,0); 
+  -webkit-user-select: none;
 }
 
 form {
