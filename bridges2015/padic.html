@@ -2,6 +2,14 @@
 <meta charset="utf-8">
 <style>
 
+// Disabling flashing when clicking:
+// http://stackoverflow.com/questions/3516173/ipad-safari-how-to-disable-the-quick-blinking-effect-when-a-link-has-been-hit
+// http://stackoverflow.com/questions/9157080/wrong-webkit-tap-highlight-color-behavior-when-page-as-web-standalone-app
+html {
+    -webkit-tap-highlight-color: transparent; 
+    -webkit-user-select: none;
+} 
+
 body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   width: 1024px;
@@ -18,14 +26,15 @@ form {
 
 path {
   fill-rule: evenodd;
-  stroke: #333;
 }
 
 .highlight {
+  stroke: #CCC;
   stroke-width: 15px;
 }
 
 .nohighlight {
+  stroke: #333;
   stroke-width: 4px;
 }
 
@@ -91,6 +100,12 @@ var svg = d3.select("body").append("svg")
   .append("g")
     .attr("transform", "translate(" + m_width / 2 + "," + m_height / 2 + ") scale(.5)");
 
+svg.append("rect")
+	.attr("transform", "translate(" + -m_width + "," + -m_height + ") scale(2.0)")	
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("fill", "#F2F2F2");
+	
 var frame = svg.append("g");
 build();
 
@@ -121,6 +136,7 @@ function build()
 	var circleGroup = addCircle( rootString, rootLevel, rootGroup, 0 );
 	addCirclesRecursive( rootLevel, circleGroup, rootString );
 	cacheGroups();
+	m_stateGroups.attr("class", "nohighlight");
 	updateCacheIfNeeded();
 }
 
@@ -157,6 +173,7 @@ function circleClicked( level )
 	if( !m_regenCache )
 		m_increment = Math.pow( m_p, level );
 	m_regenCache = true;	// We'll need to regen the cache.
+	m_cycles = 0;			// They interacted, so reset auto-decrement.
 }
 
 function addCircle( code, level, group, circleNum )
@@ -275,9 +292,12 @@ function toHex( c )
 function hslToRgb(h, s, l){
     var r, g, b;
 
-    if(s == 0){
+    if(s == 0)
+	{
         r = g = b = l; // achromatic
-    }else{
+    }
+	else
+	{
         var hue2rgb = function hue2rgb(p, q, t){
             if(t < 0) t += 1;
             if(t > 1) t -= 1;
@@ -466,10 +486,12 @@ function updateState()
 }
 
 // Variables related to spinning.
-var m_speed = 15,
+var m_speed = 14,
 	m_pause = false,
     m_last = Date.now(),
-	m_elapsed = 0;
+	m_elapsed = 0,
+	m_cyclesToStartAutoDecrement = 12*20,	// Approx 12 cycles happen per minute, so this will auto-decrement after 20 minutes.
+	m_cycles = 0;
 //d3.select("body")
 //	.on("click", function() { m_pause = !m_pause; });
 
@@ -490,7 +512,11 @@ function cyclePuzzle()
 		case 3: m_p = 5; break;
 		case 5: m_p = 2; break;
 	}
-	build(); 
+	
+	// They interacted, so reset auto-decrement.
+	m_cycles = 0;
+	
+	build();
 }
 
 d3.select("svg")
@@ -520,12 +546,23 @@ d3.timer
 		m_elapsed += now - m_last;
 		m_last = now;
 	
-		var angle = m_elapsed * m_speed / m_radius;	// Shouldn't depend on radius.
+		var angle = 3 * m_elapsed * m_speed / ( m_p * m_radius );	// XXX - Shouldn't depend on radius.
 		if( angle > 360/m_p )
 		{
 			updateState();
 			angle = 0;
 			m_elapsed = 0;
+			
+			// Handle auto-decrementing if we haven't had much user input.
+			m_cycles++;
+			if( m_cycles > m_cyclesToStartAutoDecrement )
+			{
+				if( m_add > 1 )
+					m_increment = -1;
+				else
+					m_increment = Math.floor((Math.random() * Math.pow(m_p,3)) + 1);
+				m_regenCache = true;
+			}
 			
 			// We may have been clicked during our last rotation.
 			updateCacheIfNeeded();
